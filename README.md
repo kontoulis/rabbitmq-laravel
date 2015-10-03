@@ -23,6 +23,11 @@ Add the RabbitMQ facade to config/app.php
 'RabbitMQ' => Kontoulis\RabbitMQLaravel\Facades\RabbitMQ::class,
 ```
 
+Publish the configuration file and edit it if needed in config/rabbitmq-laravel.php
+``` bash
+$ php artisan vendor:publish
+```
+
 ## Usage
 - Publish Message to queue
 
