@@ -1,7 +1,9 @@
-# :package_name
+# RabbitMQLAravel
 
 [![Latest Stable Version](https://poser.pugx.org/kontoulis/rabbitmq-laravel/v/stable)](https://packagist.org/packages/kontoulis/rabbitmq-laravel)
-
+[![Total Downloads](https://poser.pugx.org/kontoulis/rabbit-manager/downloads)](https://packagist.org/packages/kontoulis/rabbitmq-laravel)
+[![Latest Unstable Version](https://poser.pugx.org/kontoulis/rabbit-manager/v/unstable)](https://packagist.org/packages/kontoulis/rabbitmq-laravel)
+[![License](https://poser.pugx.org/kontoulis/rabbit-manager/license)](https://packagist.org/packages/kontoulis/rabbitmq-laravel)
 ## Install
 
 Via Composer
