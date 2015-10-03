@@ -1,4 +1,4 @@
-# RabbitMQLAravel
+# RabbitMQLaravel
 
 [![Latest Stable Version](https://poser.pugx.org/kontoulis/rabbitmq-laravel/v/stable)](https://packagist.org/packages/kontoulis/rabbitmq-laravel)
 [![Total Downloads](https://poser.pugx.org/kontoulis/rabbit-manager/downloads)](https://packagist.org/packages/kontoulis/rabbitmq-laravel)
