@@ -2,7 +2,7 @@
     "name": "kontoulis/rabbitmq-laravel",
     "description": "RabbitMQ Broker for Laravel",
     "license": "MIT",
-    "keywords": ["rabbitmq"],
+    "keywords": ["rabbitmq", "laravel"],
     "homepage": "https://github.com/kontoulis/RabbitMQLaravel",
     "authors": [
         {
