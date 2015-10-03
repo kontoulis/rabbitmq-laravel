@@ -12,10 +12,21 @@ Via Composer
 $ composer require kontoulis/rabbitmq-laravel
 ```
 
+Add the Service Provider to config/app.php
+
+``` php
+Kontoulis\RabbitMQLaravel\RabbitMQLaravelServiceProvider::class,
+```
+Add the RabbitMQ facade to config/app.php
+
+``` php
+'RabbitMQ' => Kontoulis\RabbitMQLaravel\Facades\RabbitMQ::class,
+```
+
 ## Usage
 - Publish Message to queue
 
-As a Dependency injection
+With Dependency injection
 ``` php
 function __construct(RabbitMQ $rabbitMQ){
 $this->rabbitMQ = $rabbitMQ;
