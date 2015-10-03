@@ -153,7 +153,7 @@ class Broker
 
 		$this->channel->queue_declare(
 
-			$queueName, false, true, false, false
+			$this->queueName, false, true, false, false
 
 		);
 
@@ -164,7 +164,7 @@ class Broker
 
 		$this->channel->basic_consume(
 
-			$queueName, '', false, false, false, false, function ($amqpMsg) use ($handlersMap) {
+			$this->queueName, '', false, false, false, false, function ($amqpMsg) use ($handlersMap) {
 
 
 				$msg = Message::fromAMQPMessage($amqpMsg);
