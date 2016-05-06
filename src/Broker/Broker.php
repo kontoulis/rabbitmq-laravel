@@ -5,7 +5,7 @@ namespace Kontoulis\RabbitMQLaravel\Broker;
 use Kontoulis\RabbitMQLaravel\Message\Message;
 use Kontoulis\RabbitMQLaravel\Handlers\Handler;
 use Kontoulis\RabbitMQLaravel\Exception\BrokerException;
-use PhpAmqpLib\Connection\AMQPConnection;
+use PhpAmqpLib\Connection\AMQPStreamConnection;
 use PhpAmqpLib\Exception\AMQPRuntimeException;
 
 
@@ -27,12 +27,12 @@ class Broker
 	protected $queueName;
 
 	/**
-	 * @var AMQPConnection
+	 * @var \PhpAmqpLib\Connection\AMQPStreamConnection
 	 */
 	protected $connection;
 
 	/**
-	 * @var PhpAmqpLib\Channel\AMQPChannel
+	 * @var \PhpAmqpLib\Channel\AMQPChannel
 	 */
 	protected $channel;
 
@@ -85,7 +85,7 @@ class Broker
 
 			/* Open RabbitMQ connection */
 
-			$this->connection = new AMQPConnection($this->host, $this->port, $this->user, $this->password, $this->vhost);
+			$this->connection = new AMQPStreamConnection($this->host, $this->port, $this->user, $this->password, $this->vhost);
 
 			$this->channel = $this->connection->channel();
 
@@ -106,22 +106,50 @@ class Broker
 
 	/**
 	 * Starts to listen a queue for incoming messages.
-	 * @param array  $handlers  Array of handler class instances
+	 * @param array $handlers Array of handler class instances
 	 * @param string $queueName The AMQP queue
-	 * @throws \Kontoulis\RabbitMQLaravel\Exception\BrokerException
+	 * @param bool $destroyOnEmpty
 	 * @return bool
 	 */
 
-	public function listenToQueue($handlers = [] , $queueName = null )
+	public function listenToQueue($handlers = [], $queueName = null, $destroyOnEmpty = false)
 	{
-		if(!is_null($queueName)) {
+		if (!is_null($queueName)) {
 			$this->queueName = $queueName;
 		}
 		/* Look for handlers */
 
 		$handlersMap = array();
-		foreach ($handlers as $handlerClassPath) {
+		if (is_array($handlers)) {
+			foreach ($handlers as $handlerClassPath) {
 
+				if (!class_exists($handlerClassPath)) {
+
+					$handlerClassPath = "Kontoulis\\RabbitMQLaravel\\Handlers\\DefaultHandler";
+
+					if (!class_exists($handlerClassPath)) {
+
+						throw new BrokerException(
+								"Class $handlerClassPath was not found!"
+						);
+
+					}
+
+				}
+
+				$handlerOb = new $handlerClassPath();
+
+				$classPathParts = explode("\\", $handlerClassPath);
+
+				$handlersMap[$classPathParts[count(
+
+						$classPathParts
+
+				) - 1]] = $handlerOb;
+
+			}
+		} else {
+			$handlerClassPath = $handlers;
 			if (!class_exists($handlerClassPath)) {
 
 				$handlerClassPath = "Kontoulis\\RabbitMQLaravel\\Handlers\\DefaultHandler";
@@ -129,7 +157,7 @@ class Broker
 				if (!class_exists($handlerClassPath)) {
 
 					throw new BrokerException(
-						"Class $handlerClassPath was not found!"
+							"Class $handlerClassPath was not found!"
 					);
 
 				}
@@ -142,20 +170,15 @@ class Broker
 
 			$handlersMap[$classPathParts[count(
 
-				$classPathParts
+					$classPathParts
 
 			) - 1]] = $handlerOb;
-
 		}
 
 
 		/* Create queue */
 
-		$this->channel->queue_declare(
-
-			$this->queueName, false, true, false, false
-
-		);
+		$this->channel->queue_declare($this->queueName, false, true, false, false);
 
 
 		/* Start consuming */
@@ -164,30 +187,106 @@ class Broker
 
 		$this->channel->basic_consume(
 
-			$this->queueName, '', false, false, false, false, function ($amqpMsg) use ($handlersMap) {
+				$this->queueName, '', false, false, false, false, function ($amqpMsg) use ($handlersMap) {
 
 
-				$msg = Message::fromAMQPMessage($amqpMsg);
+			$msg = Message::fromAMQPMessage($amqpMsg);
 
-				$this->handleMessage($msg, $handlersMap);
+			$this->handleMessage($msg, $handlersMap);
 
-			}
+		}
 
 		);
 
 		/* Iterate until ctrl+c is received... */
 
 		while (count($this->channel->callbacks)) {
-
-			$this->channel->wait();
-
+			$this->channel->wait(null, null, 1);
 		}
 
 	}
 
 	/**
+	 * @param $queueName
+	 */
+	public function setQueue($queueName)
+	{
+		$this->queueName = $queueName;
+	}
+
+	/**
+	 * @param $message
+	 * @param $queueName
+	 * @internal param Kontoulis\RabbitMQLaravel\Message\Message $msg
+	 */
+
+	public function sendMessage($message, $queueName = null)
+	{
+
+		if (is_null($queueName)) {
+			$queueName = $this->queueName;
+		}
+
+		$msg = new Message($queueName, ["message" => $message]);
+		/* Create the message */
+
+		$amqpMessage = $msg->getAMQPMessage();
+
+
+		/* Create queue */
+
+		$this->channel->queue_declare(
+
+				$msg->queueName, false, true, false, false
+
+		);
+
+
+		/* Publish message */
+
+		$this->channel->basic_publish(
+
+				$amqpMessage, '', $msg->queueName
+
+		);
+
+
+	}
+
+	/**
+	 * Publishes a batch of messages in queue
+	 * @param $data
+	 */
+	public function publish_batch($data)
+	{
+		if (is_null($queueName = null)) {
+			$queueName = $this->queueName;
+		}
+		/* Create queue */
+
+		$this->channel->queue_declare(
+
+				$queueName, false, true, false, false
+
+		);
+		foreach ($data as $item) {
+			$msg = new Message($queueName, ["message" => $item]);
+			/* Create the message */
+
+			$amqpMessage = $msg->getAMQPMessage();
+
+			$this->channel->batch_basic_publish(
+					$amqpMessage, '', $msg->queueName
+			);
+		}
+		/* Publish message */
+
+		$this->channel->publish_batch();
+	}
+
+	/**
 	 * @param Message $msg
-	 * @param array   $handlersMap
+	 * @param array $handlersMap
 	 * @return bool
 	 */
 	public function handleMessage(Message $msg, array $handlersMap)
@@ -270,6 +369,40 @@ class Broker
 
 	}
 
+	public function basicGet($queue = '', $no_ack = false, $ticket = null)
+	{
+		if ($queue == '') {
+			$queue = $this->queueName;
+		}
+		return $this->channel->basic_get($queue);
+	}
+
+	public function getChannel()
+	{
+		return $this->channel;
+	}
+
+	/**
+	 * @param Message $msg
+	 * @return bool
+	 */
+
+	protected function handleSucceedStop(Message $msg)
+	{
+		$msg->sendAck();
+
+		$remaining = $this->getStatus($msg);
+
+		if ($remaining < 1) {
+
+			exit(0);
+
+		}
+
+		return true;
+
+	}
+
 	/**
 	 * @param null $msg
 	 * @return int
@@ -279,11 +412,11 @@ class Broker
 
 		$request = [
 
-			"count"    => 10,
+				"count" => 10,
 
-			"requeue"  => true,
+				"requeue" => true,
 
-			"encoding" => "auto"
+				"encoding" => "auto"
 
 		];
 
@@ -301,7 +434,7 @@ class Broker
 
 		$url = "http://" . $this->host . ":" . $this->port . "/api/queues/%2F/" .
 
-			$queueName . '/get';
+				$queueName . '/get';
 
 
 		$fields = json_encode($request);
@@ -339,34 +472,6 @@ class Broker
 	}
 
 	/**
-	 * @param $queueName
-	 */
-	public function setQueue($queueName){
-		$this->queueName = $queueName;
-	}
-
-	/**
-	 * @param Message $msg
-	 * @return bool
-	 */
-
-	protected function handleSucceedStop(Message $msg)
-	{
-		$msg->sendAck();
-
-		$remaining = $this->getStatus($msg);
-
-		if ($remaining < 1) {
-
-			exit(0);
-
-		}
-
-		return true;
-
-	}
-
-	/**
 	 * @param Message $msg
 	 * @return bool
 	 */
@@ -375,10 +480,9 @@ class Broker
 		return true;
 	}
 
-
 	/**
 	 * @param Message $msg
-	 * @throws Kontoulis\RabbitMQLaravel\Exception\BrokerException
+	 * @throws BrokerException
 	 */
 	protected function handleFailedStop(Message $msg)
 	{
@@ -386,18 +490,17 @@ class Broker
 
 		throw new BrokerException(
 
-			"Handler failed for message"
+				"Handler failed for message"
 
-			. " {$msg->getDeliveryTag()}."
+				. " {$msg->getDeliveryTag()}."
 
-			. " Execution stops but message is not rescheduled."
+				. " Execution stops but message is not rescheduled."
 
 		);
 	}
 
-
 	/**
-	 * @param Message $msg$
+	 * @param Message $msg $
 	 * @return bool
 	 */
 	protected function handleFailedRequeue(Message $msg)
@@ -410,7 +513,6 @@ class Broker
 
 	}
 
-
 	/**
 	 * @param Message $msg
 	 * @return bool
@@ -418,45 +520,6 @@ class Broker
 	protected function handleFailedContinue(Message $msg)
 	{
 		return true;
-	}
-
-	/**
-	 * @param $queueName
-	 * @param $message
-	 * @internal param Kontoulis\RabbitMQLaravel\Message\Message $msg
-	 */
-
-	public function sendMessage($message, $queueName=null)
-	{
-
-		if(is_null($queueName)){
-			$queueName = $this->queueName;
-		}
-
-		$msg = new Message($queueName, ["message" => $message]);
-		/* Create the message */
-
-		$amqpMessage = $msg->getAMQPMessage();
-
-
-		/* Create queue */
-
-		$this->channel->queue_declare(
-
-			$msg->queueName, false, true, false, false
-
-		);
-
-
-		/* Publish message */
-
-		$this->channel->basic_publish(
-
-			$amqpMessage, '', $msg->queueName
-
-		);
-
-
 	}
 
 }
