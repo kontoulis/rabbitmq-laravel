@@ -112,351 +112,419 @@ class Broker
 	 * @return bool
 	 */
 
-	public function listenToQueue($handlers = [] , $queueName = null )
-	{
-		if(!is_null($queueName)) {
-			$this->queueName = $queueName;
-		}
-		/* Look for handlers */
+    public function listenToQueue($handlers = [], $queueName = null, $channelId = null)
+    {
+        if (!is_null($queueName)) {
+            $this->queueName = $queueName;
+        }
+//        $channel = $this->connection->channel();
+        /* Look for handlers */
+//        if($this->multichannel){
+//            $channel = $this->connection->channel($channelId);
+//        }else{
+//            $channel = $this->channel;
+//        }
+        $handlersMap = array();
+        if (is_array($handlers)) {
+            foreach ($handlers as $handlerClassPath) {
 
-		$handlersMap = array();
-		foreach ($handlers as $handlerClassPath) {
+                if (!class_exists($handlerClassPath)) {
 
-			if (!class_exists($handlerClassPath)) {
+                    $handlerClassPath = "Kontoulis\\RabbitMQLaravel\\Handlers\\DefaultHandler";
 
-				$handlerClassPath = "Kontoulis\\RabbitMQLaravel\\Handlers\\DefaultHandler";
+                    if (!class_exists($handlerClassPath)) {
 
-				if (!class_exists($handlerClassPath)) {
+                        throw new BrokerException(
+                            "Class $handlerClassPath was not found!"
+                        );
 
-					throw new BrokerException(
-						"Class $handlerClassPath was not found!"
-					);
+                    }
 
-				}
+                }
 
-			}
+                $handlerOb = new $handlerClassPath($this);
 
-			$handlerOb = new $handlerClassPath();
+                $classPathParts = explode("\\", $handlerClassPath);
 
-			$classPathParts = explode("\\", $handlerClassPath);
+                $handlersMap[$classPathParts[count(
 
-			$handlersMap[$classPathParts[count(
+                    $classPathParts
 
-				$classPathParts
+                ) - 1]] = $handlerOb;
 
-			) - 1]] = $handlerOb;
+            }
+        } else {
+            $handlerClassPath = $handlers;
+            if (!class_exists($handlerClassPath)) {
 
-		}
+                $handlerClassPath = "Kontoulis\\RabbitMQLaravel\\Handlers\\DefaultHandler";
 
+                if (!class_exists($handlerClassPath)) {
 
-		/* Create queue */
+                    throw new BrokerException(
+                        "Class $handlerClassPath was not found!"
+                    );
 
-		$this->channel->queue_declare(
+                }
 
-			$this->queueName, false, true, false, false
+            }
 
-		);
+            $handlerOb = new $handlerClassPath($this);
 
+            $classPathParts = explode("\\", $handlerClassPath);
 
-		/* Start consuming */
+            $handlersMap[$classPathParts[count(
 
-		$this->channel->basic_qos(null, 1, null);
+                $classPathParts
 
-		$this->channel->basic_consume(
+            ) - 1]] = $handlerOb;
+        }
 
-			$this->queueName, '', false, false, false, false, function ($amqpMsg) use ($handlersMap) {
 
+        /* Create queue */
 
-				$msg = Message::fromAMQPMessage($amqpMsg);
+        $this->channel->queue_declare($this->queueName, false, true, false, false);
 
-				$this->handleMessage($msg, $handlersMap);
 
-			}
+        /* Start consuming */
 
-		);
+        $this->channel->basic_qos(null, $this->prefetchCount, null);
 
-		/* Iterate until ctrl+c is received... */
+        $this->channel->basic_consume(
 
-		while (count($this->channel->callbacks)) {
+            $this->queueName, '', false, false, false, false, function ($amqpMsg) use ($handlersMap) {
 
-			$this->channel->wait();
 
-		}
+            $msg = Message::fromAMQPMessage($amqpMsg);
 
-	}
+            $this->handleMessage($msg, $handlersMap);
 
-	/**
-	 * @param Message $msg
-	 * @param array   $handlersMap
-	 * @return bool
-	 */
-	public function handleMessage(Message $msg, array $handlersMap)
-	{
+        }
 
-		/* Try to process the message */
+        );
 
-		foreach ($handlersMap as $code => $ob) {
+        /* Iterate until ctrl+c is received... */
 
-			$retVal = $ob->tryProcessing($msg);
+        while (count($this->channel->callbacks)) {
+            $this->channel->wait(null, null, $this->timeout);
+        }
 
-			$msg->updateAMQPMessage();
+    }
 
-			switch ($retVal) {
+    /**
+     * @param $queueName
+     */
+    public function setQueue($queueName)
+    {
+        $this->queueName = $queueName;
+    }
 
-				case Handler::RV_SUCCEED_STOP:
+    /**
+     * @param $message
+     * @param $queueName
+     * @internal param Kontoulis\RabbitMQLaravel\Message\Message $msg
+     */
 
-					/* Handler succeeded, you MUST stop processing */
+    public function sendMessage($message, $queueName = null)
+    {
 
-					return $this->handleSucceedStop($msg);
+        if (is_null($queueName)) {
+            $queueName = $this->queueName;
+        }
 
+        $msg = new Message($queueName, ["message" => $message]);
+        /* Create the message */
 
-				case Handler::RV_SUCCEED_CONTINUE:
+        $amqpMessage = $msg->getAMQPMessage();
 
-					/* Handler succeeded, you SHOULD continue processing */
 
-					$this->handleSucceedContinue($msg);
+        /* Create queue */
 
-					continue;
+        $this->channel->queue_declare(
 
+            $msg->queueName, false, true, false, false
 
-				case Handler::RV_PASS:
+        );
 
-					/**
-					 * Just continue processing (I have no idea what
-					 * happened in the handler)
-					 */
 
-					continue;
+        /* Publish message */
 
+        $this->channel->basic_publish(
 
-				case Handler::RV_FAILED_STOP:
+            $amqpMessage, '', $msg->queueName
 
-					/* Handler failed and MUST stop processing */
+        );
 
 
-					return $this->handleFailedStop($msg);
+    }
 
+    /**
+     * Publishes a batch of messages in queue
+     * @param $data
+     */
+    public function publish_batch($data)
+    {
+        if (is_null($queueName = null)) {
+            $queueName = $this->queueName;
+        }
+        /* Create queue */
 
-				case Handler::RV_FAILED_REQUEUE:
+        $this->channel->queue_declare(
 
-					/**
-					 * Handler failed and MUST stop processing but the message
-					 * will be rescheduled
-					 */
+            $queueName, false, true, false, false
 
-					return $this->handleFailedRequeue($msg);
+        );
+        foreach ($data as $item) {
+            $msg = new Message($queueName, ["message" => $item]);
+            /* Create the message */
 
+            $amqpMessage = $msg->getAMQPMessage();
 
-				case Handler::RV_FAILED_CONTINUE:
+            $this->channel->batch_basic_publish(
+                $amqpMessage, '', $msg->queueName
+            );
+        }
+        /* Publish message */
 
-					/* Well, handler failed, but you may try another */
+        $this->channel->publish_batch();
+    }
 
-					$this->handleFailedContinue($msg);
+    /**
+     * @param Message $msg
+     * @param array $handlersMap
+     * @return bool
+     */
+    public function handleMessage(Message $msg, array $handlersMap)
+    {
 
-					continue;
+        /* Try to process the message */
 
+        foreach ($handlersMap as $code => $ob) {
 
-				default:
+            $retVal = $ob->tryProcessing($msg);
 
-					return false;
+            $msg->updateAMQPMessage();
 
-			}
+            switch ($retVal) {
 
-		}
+                case Handler::RV_SUCCEED_STOP:
 
-		/* If haven't return yet, send an ACK */
+                    /* Handler succeeded, you MUST stop processing */
 
-		$msg->sendAck();
+                    return $this->handleSucceedStop($msg);
 
-	}
 
-	/**
-	 * @param null $msg
-	 * @return int
-	 */
-	public function getStatus($msg = null)
-	{
+                case Handler::RV_SUCCEED_CONTINUE:
 
-		$request = [
+                    /* Handler succeeded, you SHOULD continue processing */
 
-			"count"    => 10,
+                    $this->handleSucceedContinue($msg);
 
-			"requeue"  => true,
+                    continue;
 
-			"encoding" => "auto"
 
-		];
+                case Handler::RV_PASS:
 
-		if (!is_null($msg) && strlen($msg->queueName) > 0) {
+                    /**
+                     * Just continue processing (I have no idea what
+                     * happened in the handler)
+                     */
 
-			$queueName = $msg->queueName;
+                    continue;
 
-		} else {
 
-			$queueName = $this->queueName;
+                case Handler::RV_FAILED_STOP:
 
-		}
+                    /* Handler failed and MUST stop processing */
 
-		$ch = curl_init();
 
-		$url = "http://" . $this->host . ":" . $this->port . "/api/queues/%2F/" .
+                    return $this->handleFailedStop($msg);
 
-			$queueName . '/get';
 
+                case Handler::RV_FAILED_REQUEUE:
 
-		$fields = json_encode($request);
+                    /**
+                     * Handler failed and MUST stop processing but the message
+                     * will be rescheduled
+                     */
 
-		curl_setopt($ch, CURLOPT_URL, $url);
+                    return $this->handleFailedRequeue($msg);
 
-		curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
 
-		curl_setopt($ch, CURLOPT_POST, count($fields));
+                case Handler::RV_FAILED_CONTINUE:
 
-		curl_setopt($ch, CURLOPT_POSTFIELDS, $fields);
+                    /* Well, handler failed, but you may try another */
 
-		curl_setopt($ch, CURLOPT_USERPWD, $this->user . ":" . $this->password);
+                    $this->handleFailedContinue($msg);
 
-		curl_setopt($ch, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
+                    continue;
 
 
-		$result = curl_exec($ch);
-		curl_close($ch);
+                default:
 
+                    return false;
 
-		$data = json_decode($result);
+            }
 
-		$messages = $data;
-		if (!empty($messages)) {
-			if (is_array($messages)) {
-				return $messages[0]->message_count;
-			} else {
-				return $messages->message_count;
-			}
-		} else {
-			return -1;
-		}
+        }
 
-	}
+        /* If haven't return yet, send an ACK */
 
-	/**
-	 * @param $queueName
-	 */
-	public function setQueue($queueName){
-		$this->queueName = $queueName;
-	}
+        $msg->sendAck();
 
-	/**
-	 * @param Message $msg
-	 * @return bool
-	 */
+    }
 
-	protected function handleSucceedStop(Message $msg)
-	{
-		$msg->sendAck();
+    public function basicGet($queue = '', $no_ack = false, $ticket = null)
+    {
+        if ($queue == '') {
+            $queue = $this->queueName;
+        }
+        return $this->channel->basic_get($queue);
+    }
 
-		$remaining = $this->getStatus($msg);
+    public function getChannel()
+    {
+        return $this->channel;
+    }
 
-		if ($remaining < 1) {
+    /**
+     * @param Message $msg
+     * @return bool
+     */
 
-			exit(0);
+    protected function handleSucceedStop(Message $msg)
+    {
+        $msg->sendAck();
 
-		}
+        $remaining = $this->getStatus($msg);
 
-		return true;
+        if ($remaining < 1) {
 
-	}
+            exit(0);
 
-	/**
-	 * @param Message $msg
-	 * @return bool
-	 */
-	protected function handleSucceedContinue(Message $msg)
-	{
-		return true;
-	}
+        }
 
+        return true;
 
-	/**
-	 * @param Message $msg
-	 * @throws Kontoulis\RabbitMQLaravel\Exception\BrokerException
-	 */
-	protected function handleFailedStop(Message $msg)
-	{
-		$msg->sendNack();
+    }
 
-		throw new BrokerException(
+    /**
+     * @param null $msg
+     * @return int
+     */
+    public function getStatus($msg = null)
+    {
 
-			"Handler failed for message"
+        $request = [
 
-			. " {$msg->getDeliveryTag()}."
+            "count" => 10,
 
-			. " Execution stops but message is not rescheduled."
+            "requeue" => true,
 
-		);
-	}
+            "encoding" => "auto"
 
+        ];
 
-	/**
-	 * @param Message $msg$
-	 * @return bool
-	 */
-	protected function handleFailedRequeue(Message $msg)
-	{
-		$msg->sendNack();
+        if (!is_null($msg) && strlen($msg->queueName) > 0) {
 
-		$msg->republish();
+            $queueName = $msg->queueName;
 
-		return true;
+        } else {
 
-	}
+            $queueName = $this->queueName;
 
+        }
 
-	/**
-	 * @param Message $msg
-	 * @return bool
-	 */
-	protected function handleFailedContinue(Message $msg)
-	{
-		return true;
-	}
+        $ch = curl_init();
 
-	/**
-	 * @param $queueName
-	 * @param $message
-	 * @internal param Kontoulis\RabbitMQLaravel\Message\Message $msg
-	 */
+        $url = "http://" . $this->host . ":" . $this->port . "/api/queues/%2F/" .
 
-	public function sendMessage($message, $queueName=null)
-	{
+            $queueName . '/get';
 
-		if(is_null($queueName)){
-			$queueName = $this->queueName;
-		}
 
-		$msg = new Message($queueName, ["message" => $message]);
-		/* Create the message */
+        $fields = json_encode($request);
 
-		$amqpMessage = $msg->getAMQPMessage();
+        curl_setopt($ch, CURLOPT_URL, $url);
 
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
 
-		/* Create queue */
+        curl_setopt($ch, CURLOPT_POST, count($fields));
 
-		$this->channel->queue_declare(
+        curl_setopt($ch, CURLOPT_POSTFIELDS, $fields);
 
-			$msg->queueName, false, true, false, false
+        curl_setopt($ch, CURLOPT_USERPWD, $this->user . ":" . $this->password);
 
-		);
+        curl_setopt($ch, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
 
 
-		/* Publish message */
+        $result = curl_exec($ch);
+        curl_close($ch);
 
-		$this->channel->basic_publish(
 
-			$amqpMessage, '', $msg->queueName
+        $data = json_decode($result);
 
-		);
+        $messages = $data;
+        if (!empty($messages)) {
+            if (is_array($messages)) {
+                return $messages[0]->message_count;
+            } else {
+                return $messages->message_count;
+            }
+        } else {
+            return -1;
+        }
 
+    }
 
-	}
+    /**
+     * @param Message $msg
+     * @return bool
+     */
+    protected function handleSucceedContinue(Message $msg)
+    {
+        return true;
+    }
+
+    /**
+     * @param Message $msg
+     * @throws BrokerException
+     */
+    protected function handleFailedStop(Message $msg)
+    {
+        $msg->sendNack();
+
+        throw new BrokerException(
+
+            "Handler failed for message"
+
+            . " {$msg->getDeliveryTag()}."
+
+            . " Execution stops but message is not rescheduled."
+
+        );
+    }
+
+    /**
+     * @param Message $msg $
+     * @return bool
+     */
+    protected function handleFailedRequeue(Message $msg)
+    {
+        $msg->sendNack();
+
+        $msg->republish();
+
+        return true;
+
+    }
+
+    /**
+     * @param Message $msg
+     * @return bool
+     */
+    protected function handleFailedContinue(Message $msg)
+    {
+        return true;
+    }
 
 }
