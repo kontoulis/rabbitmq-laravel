@@ -7,6 +7,7 @@ use Kontoulis\RabbitMQLaravel\Handlers\Handler;
 use Kontoulis\RabbitMQLaravel\Exception\BrokerException;
 use Kontoulis\RabbitMQLaravel\Traits\SingletonTrait;
 use PhpAmqpLib\Connection\AMQPConnection;
+use PhpAmqpLib\Connection\AMQPStreamConnection;
 use PhpAmqpLib\Exception\AMQPRuntimeException;
 
 
