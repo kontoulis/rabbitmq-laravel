@@ -5,6 +5,7 @@ namespace Kontoulis\RabbitMQLaravel\Broker;
 use Kontoulis\RabbitMQLaravel\Message\Message;
 use Kontoulis\RabbitMQLaravel\Handlers\Handler;
 use Kontoulis\RabbitMQLaravel\Exception\BrokerException;
+use Kontoulis\RabbitMQLaravel\Traits\SingletonTrait;
 use PhpAmqpLib\Connection\AMQPConnection;
 use PhpAmqpLib\Exception\AMQPRuntimeException;
 
@@ -15,7 +16,7 @@ use PhpAmqpLib\Exception\AMQPRuntimeException;
  */
 class Broker
 {
-
+use SingletonTrait;
 	/**
 	 * @var
 	 */
