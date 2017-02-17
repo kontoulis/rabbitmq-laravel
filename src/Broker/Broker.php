@@ -20,98 +20,119 @@ use SingletonTrait;
 	/**
 	 * @var
 	 */
-	protected $exchange;
+    protected $host;
+    /**
+     * @var
+     */
+    protected $port;
+    /**
+     * @var string
+     */
+    protected $user;
+    /**
+     * @var string
+     */
+    protected $password;
+    /**
+     * @var string
+     */
+    protected $vhost;
+    /**
+     * @var
+     */
+    protected $exchange;
+    /**
+     * @var
+     */
+    protected $queueName;
+    /**
+     * @var AMQPConnection
+     */
+    protected $connection;
+    /**
+     * @var \PhpAmqpLib\Channel\AMQPChannel
+     */
+    protected $channel;
+    /**
+     * @var
+     */
+    protected $consumer_tag;
+    /**
+     * @var Logger
+     */
+    protected $logger;
 
-	/**
-	 * @var
-	 */
-	protected $queueName;
+    public $timeout = 10;
+    public $prefetchCount = 1;
 
-	/**
-	 * @var AMQPConnection
-	 */
-	protected $connection;
+    /**
+     * @param array $config
+     * @param bool $multichannel
+     * @throws \Exception
+     * @internal param string $host
+     * @internal param int $port
+     * @internal param string $user
+     * @internal param string $password
+     * @internal param string $vhost
+     */
+    function __construct($config = [], $multichannel = false)
+    {
+        $this->multichannel = $multichannel;
+        $this->host = (isset($config['host']) ? $config['host'] : (defined('AMQP_HOST') ? AMQP_HOST : 'localhost'));
+        $this->port = (isset($config['port']) ? $config['port'] : (defined('AMQP_PORT') ? AMQP_PORT : 5672));
+        $this->user = (isset($config['user']) ? $config['user'] : (defined('AMQP_USER') ? AMQP_USER : 'guest'));
+        $this->password = (isset($config['password']) ? $config['password'] : (defined('AMQP_PASS') ? AMQP_PASS : 'guest'));
+        $this->vhost = (isset($config['vhost']) ? $config['vhost'] : (defined('AMQP_vhost') ? AMQP_PASS : '/'));
 
-	/**
-	 * @var PhpAmqpLib\Channel\AMQPChannel
-	 */
-	protected $channel;
+//        $this->logger = new Logger();
+        try {
 
-	/**
-	 * @var
-	 */
-	protected $consumer_tag;
+            /* Open RabbitMQ connection */
+
+            if(!isset($GLOBALS['AMQP_CONNECTION'])){
+                $GLOBALS['AMQP_CONNECTION'] = new AMQPStreamConnection($this->host, $this->port, $this->user, $this->password, $this->vhost);
+            }
+            $this->connection = $GLOBALS['AMQP_CONNECTION'];
+            if(!isset($GLOBALS['AMQP_MAIN_CHANNEL'])){
+                $GLOBALS['AMQP_MAIN_CHANNEL'] = $this->connection->channel();
+            }
+            $this->channel = $GLOBALS['AMQP_MAIN_CHANNEL'];
 
 
-	/**
-	 * @type
-	 */
-	protected $host;
+        } catch (AMQPRuntimeException $ex) {
 
-	/**
-	 * @type
-	 */
-	protected $port;
+            /* Something went wrong apparently... */
 
-	/**
-	 * @type
-	 */
-	protected $user;
+//            $this->logger->addError(
+//
+//                'Fatal error while initializing AMQP connection: '
+//
+//                . $ex->getMessage()
+//
+//            );
 
-	/**
-	 * @type
-	 */
-	protected $password;
+            throw new \Exception(
 
-	/**
-	 * @type
-	 */
-	protected $vhost;
+                'Fatal error while initializing AMQP connection: '
 
-	/**
-	 * @param $config
-	 * @throws Kontoulis\RabbitMQLaravel\Exception\BrokerException
-	 */
-	function __construct($config)
-	{
+                . $ex->getMessage(),
 
-		$this->host = $config['amqp_host'];
-		$this->port = $config['amqp_port'];
-		$this->user = $config['amqp_user'];
-		$this->password = $config['amqp_pass'];
-		$this->vhost = $config['amqp_vhost'];
-		$this->queueName = $config["amqp_queue"];
+                $ex->getCode()
 
-		try {
+            );
 
-			/* Open RabbitMQ connection */
+        }
+    }
 
-			$this->connection = new AMQPConnection($this->host, $this->port, $this->user, $this->password, $this->vhost);
 
-			$this->channel = $this->connection->channel();
-
-		} catch (AMQPRuntimeException $ex) {
-
-			throw new BrokerException(
-
-				'Fatal error while initializing AMQP connection: '
-
-				. $ex->getMessage(),
-
-				$ex->getCode()
-
-			);
-
-		}
-	}
-
-	/**
-	 * Starts to listen a queue for incoming messages.
-	 * @param array  $handlers  Array of handler class instances
-	 * @param string $queueName The AMQP queue
-	 * @throws \Kontoulis\RabbitMQLaravel\Exception\BrokerException
-	 * @return bool
-	 */
+    /**
+     * Starts to listen a queue for incoming messages.
+     * @param array $handlers Array of handler class instances
+     * @param string $queueName The AMQP queue
+     * @param null $channelId
+     * @return bool
+     * @internal param bool $destroyOnEmpty
+     */
 
     public function listenToQueue($handlers = [], $queueName = null, $channelId = null)
     {
