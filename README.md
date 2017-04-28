@@ -3,7 +3,7 @@
 [![Latest Stable Version](https://poser.pugx.org/kontoulis/rabbitmq-laravel/v/stable)](https://packagist.org/packages/kontoulis/rabbitmq-laravel)
 [![Latest Unstable Version](https://poser.pugx.org/kontoulis/rabbit-manager/v/unstable)](https://packagist.org/packages/kontoulis/rabbitmq-laravel)
 [![License](https://poser.pugx.org/kontoulis/rabbit-manager/license)](https://packagist.org/packages/kontoulis/rabbitmq-laravel)
-## Install
+## Installation
 
 Via Composer
 
@@ -28,9 +28,9 @@ $ php artisan vendor:publish
 ```
 
 ## Usage
-- Publish Message to queue
+### Publish Message to queue
 
-With Dependency injection
+#### With Dependency injection
 ``` php
 function __construct(RabbitMQ $rabbitMQ){
 $this->rabbitMQ = $rabbitMQ;
@@ -39,14 +39,22 @@ $this->rabbitMQ->setQueue("MyNewQueueName");
 $this->rabbitMQ->sendMessage(json_encode($anArray));
 
 ```
-As a Facade
+#### As a Facade
 ``` php
+use Kontoulis\RabbitMQLaravel\Facades\RabbitMQ;
+
 // Overide the default queueName
 RabbitMQ::setQueue("MyNewQueueName");
-RabbitMQ->sendMessage(json_encode($anArray));
+
+// Send message to default queue
+RabbitMQ::sendMessage($anArray);
+
+// Send message to different queue
+RabbitMQ::sendMessage($anArray, 'other_queue');
 
 ```
-- Listen to queue (not recommended to listen on an HTTP request. Check the standalone [rabbit-manager](https://github.com/kontoulis/rabbit-manager)
+### Listen to queue 
+Not recommended to listen on an HTTP request. Check the standalone [rabbit-manager](https://github.com/kontoulis/rabbit-manager).
 
 You need to extend the Kontoulis\RabbitMQLaravel\Handlers\Handler; or use the DefaultHandler just to echo the message
 
