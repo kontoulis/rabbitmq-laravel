@@ -24,7 +24,7 @@ class Broker
 	/**
 	 * @var
 	 */
-	protected $queueName;
+	protected $queue;
 
 	/**
 	 * @var \PhpAmqpLib\Connection\AMQPStreamConnection
@@ -79,7 +79,8 @@ class Broker
 		$this->user = $config['amqp_user'];
 		$this->password = $config['amqp_pass'];
 		$this->vhost = $config['amqp_vhost'];
-		$this->queueName = $config["amqp_queue"];
+		$this->queue = $config["amqp_queue"];
+        $this->exchange = $config["amqp_exchange"];
 
 		try {
 
@@ -112,10 +113,10 @@ class Broker
 	 * @return bool
 	 */
 
-	public function listenToQueue($handlers = [], $queueName = null, $destroyOnEmpty = false)
+	public function listenToQueue($handlers = [], $queue = null, $destroyOnEmpty = false)
 	{
-		if (!is_null($queueName)) {
-			$this->queueName = $queueName;
+		if (!is_null($queue)) {
+			$this->queue = $queue;
 		}
 		/* Look for handlers */
 
@@ -178,7 +179,7 @@ class Broker
 
 		/* Create queue */
 
-		$this->channel->queue_declare($this->queueName, false, true, false, false);
+		$this->channel->queue_declare($this->queue, false, true, false, false);
 
 
 		/* Start consuming */
@@ -187,7 +188,7 @@ class Broker
 
 		$this->channel->basic_consume(
 
-				$this->queueName, '', false, false, false, false, function ($amqpMsg) use ($handlersMap) {
+				$this->queue, '', false, false, false, false, function ($amqpMsg) use ($handlersMap) {
 
 
 			$msg = Message::fromAMQPMessage($amqpMsg);
@@ -207,82 +208,79 @@ class Broker
 	}
 
 	/**
-	 * @param $queueName
+	 * @param $queue
 	 */
-	public function setQueue($queueName)
+	public function setQueue($queue)
 	{
-		$this->queueName = $queueName;
+		$this->queue = $queue;
 	}
+
+    /**
+     * @param $exchange
+     */
+    public function setExchange($exchange)
+    {
+        $this->exchange = $exchange;
+    }
 
 	/**
 	 * @param $message
-	 * @param $queueName
+     * @param $routingKey
+	 * @param $exchange
 	 * @internal param Kontoulis\RabbitMQLaravel\Message\Message $msg
 	 */
 
-	public function sendMessage($message, $queueName = null)
+	public function sendMessage($message, $routingKey, $exchange = null)
 	{
 
-		if (is_null($queueName)) {
-			$queueName = $this->queueName;
+		if (is_null($exchange)) {
+			$exchange = $this->exchange;
 		}
 
-		$msg = new Message($queueName, ["message" => $message]);
+		$msg = new Message($routingKey, ["message" => $message]);
 		/* Create the message */
 
 		$amqpMessage = $msg->getAMQPMessage();
-
-
-		/* Create queue */
-
-		$this->channel->queue_declare(
-
-				$msg->queueName, false, true, false, false
-
-		);
-
 
 		/* Publish message */
 
 		$this->channel->basic_publish(
 
-				$amqpMessage, '', $msg->queueName
+				$amqpMessage, $exchange, $msg->routingKey()
 
 		);
-
 
 	}
 
-	/**
-	 * Publishes a batch of messages in queue
-	 * @param $data
-	 */
-	public function publish_batch($data)
-	{
-		if (is_null($queueName = null)) {
-			$queueName = $this->queueName;
-		}
-		/* Create queue */
+    /**
+     * @param $messages
+     * @param $routingKey
+     * @param $exchange
+     * @internal param Kontoulis\RabbitMQLaravel\Message\Message $msg
+     */
 
-		$this->channel->queue_declare(
+    public function sendMessages($messages, $routingKey, $exchange = null)
+    {
 
-				$queueName, false, true, false, false
+        if (is_null($exchange)) {
+            $exchange = $this->exchange;
+        }
 
-		);
-		foreach ($data as $item) {
-			$msg = new Message($queueName, ["message" => $item]);
-			/* Create the message */
+        foreach ($messages as $message)
+        {
+            /* Create the message */
+            $msg = new Message($routingKey, ["message" => $message]);
 
-			$amqpMessage = $msg->getAMQPMessage();
+            $amqpMessage = $msg->getAMQPMessage();
 
-			$this->channel->batch_basic_publish(
-					$amqpMessage, '', $msg->queueName
-			);
-		}
-		/* Publish message */
+            $this->channel->batch_basic_publish(
+                $amqpMessage, $exchange, $routingKey
+            );
+        }
 
+        /* Publish messages */
 		$this->channel->publish_batch();
-	}
+    }
 
 	/**
 	 * @param Message $msg
@@ -332,7 +330,6 @@ class Broker
 
 					/* Handler failed and MUST stop processing */
 
-
 					return $this->handleFailedStop($msg);
 
 
@@ -372,7 +369,7 @@ class Broker
 	public function basicGet($queue = '', $no_ack = false, $ticket = null)
 	{
 		if ($queue == '') {
-			$queue = $this->queueName;
+			$queue = $this->queue;
 		}
 		return $this->channel->basic_get($queue);
 	}
@@ -420,13 +417,13 @@ class Broker
 
 		];
 
-		if (!is_null($msg) && strlen($msg->queueName) > 0) {
+		if (!is_null($msg) && strlen($msg->routingKey()) > 0) {
 
-			$queueName = $msg->queueName;
+			$queueName = $msg->routingKey();
 
 		} else {
 
-			$queueName = $this->queueName;
+			$queueName = $this->routingKey;
 
 		}
 

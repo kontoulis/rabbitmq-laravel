@@ -21,7 +21,7 @@ class Message
 
 	/** @var string */
 
-	public $queueName;
+	protected $_routingKey;
 
 	/** @var array */
 
@@ -39,14 +39,14 @@ class Message
 
 	/**
 	 * Creates a new message
-	 * @param string                          $queueName
+	 * @param string                          $routingKey
 	 * @param array                           $config
 	 * @param \PhpAmqpLib\Message\AMQPMessage $msg
 	 */
 
 	public function __construct(
 
-		$queueName,
+		$routingKey,
 
 		array $config = array(),
 
@@ -55,7 +55,7 @@ class Message
 	)
 	{
 
-		$this->queueName = $queueName;
+		$this->routingKey = $routingKey;
 
 		$this->config = $config;
 
@@ -100,7 +100,7 @@ class Message
 
 	{
 
-		return $this->amqpMessage->delivery_info['routing_key'];
+		return $this->_routingKey;
 
 	}
 
@@ -168,7 +168,7 @@ class Message
 
 			'',
 
-			$this->queueName
+			$this->routingKey()
 
 		);
 
@@ -196,7 +196,7 @@ class Message
 
 				'delivery_mode' => 2,
 
-				'routing_key'   => $this->queueName
+				'routing_key'   => $this->routingKey()
 
 			)
 
