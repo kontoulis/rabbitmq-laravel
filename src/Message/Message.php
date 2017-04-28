@@ -14,79 +14,21 @@ use PhpAmqpLib\Message\AMQPMessage;
  * Class Message
  * @package RabbitMQLaravel\Libs
  */
-class Message
-
+class Message extends AMQPMessage
 {
 
-
-	/** @var string */
-
-	protected $_routingKey;
-
-	/** @var array */
-
-	public $config;
-
-	/** @var \PhpAmqpLib\Message\AMQPMessage */
-
-	private $amqpMessage;
-
-
-	/**************************************************************************
-	 * Constructors
-	 *************************************************************************/
-
-
-	/**
-	 * Creates a new message
-	 * @param string                          $routingKey
-	 * @param array                           $config
-	 * @param \PhpAmqpLib\Message\AMQPMessage $msg
-	 */
-
-	public function __construct(
-
-		$routingKey,
-
-		array $config = array(),
-
-		AMQPMessage $msg = null
-
-	)
-	{
-
-		$this->routingKey = $routingKey;
-
-		$this->config = $config;
-
-		$this->amqpMessage = $msg;
-
-	}
-
-
-	/**
-	 * Creates a message given the AMQP message and the queue it was received
-	 * from
-	 * @param \PhpAmqpLib\Message\AMQPMessage $msg
-	 * @return Message
-	 */
-
-	public static function fromAMQPMessage(AMQPMessage $msg)
-
-	{
-
-		return new Message(
-
-			$msg->delivery_info['routing_key'],
-
-			(array)json_decode($msg->body),
-
-			$msg
-
-		);
-
-	}
-
+    /**
+     * @param string $body
+     * @param array $properties
+     */
+    public function __construct($body = '', $properties = array())
+    {
+        if (gettype($body) == "object")
+        {
+            $body = json_encode($body);
+        }
+        parent::__construct($body, $properties);
+    }
 
 	/**************************************************************************
 	 * AMQP message high level API
@@ -97,11 +39,8 @@ class Message
 	 */
 
 	public function routingKey()
-
 	{
-
-		return $this->_routingKey;
-
+		return $this->delivery_info['routing_key'];
 	}
 
 	/**
@@ -109,10 +48,9 @@ class Message
 	 */
 
 	public function sendAck()
-
 	{
 
-		$this->amqpMessage->delivery_info['channel']->basic_ack(
+		$this->delivery_info['channel']->basic_ack(
 
 			$this->getDeliveryTag()
 
@@ -128,7 +66,7 @@ class Message
 
 	{
 
-		return $this->amqpMessage->delivery_info['delivery_tag'];
+		return $this->delivery_info['delivery_tag'];
 
 	}
 
@@ -141,7 +79,7 @@ class Message
 
 	{
 
-		$this->amqpMessage->delivery_info['channel']->basic_nack(
+		$this->delivery_info['channel']->basic_nack(
 
 			$this->getDeliveryTag(),
 
@@ -162,81 +100,15 @@ class Message
 
 	{
 
-		$this->amqpMessage->delivery_info['channel']->basic_publish(
+		$this->delivery_info['channel']->basic_publish(
 
-			$this->getNewAMQPMessage(),
+			$this,
 
-			'',
+            $this->delivery_info['exchange'],
 
 			$this->routingKey()
 
 		);
-
-	}
-
-
-	/**************************************************************************
-	 * AMQP message low level API
-	 *************************************************************************/
-
-	/**
-	 * Returns new AMQP message
-	 * @return \PhpAmqpLib\Message\AMQPMessage
-	 */
-
-	protected function getNewAMQPMessage()
-
-	{
-
-		return new AMQPMessage(
-
-			json_encode($this->config),
-
-			array(
-
-				'delivery_mode' => 2,
-
-				'routing_key'   => $this->routingKey()
-
-			)
-
-		);
-
-	}
-
-	/**
-	 * Return AMQP message
-	 * @return \PhpAmqpLib\Message\AMQPMessage
-	 */
-
-	public function getAMQPMessage()
-
-	{
-
-		if (!isset($this->amqpMessage)) {
-
-			$this->amqpMessage = $this->getNewAMQPMessage();
-
-		} else {
-
-			$this->updateAMQPMessage();
-
-		}
-
-
-		return $this->amqpMessage;
-
-	}
-
-	/**
-	 * Update the AMQP message (e.g.: before rescheduling) with new config.
-	 */
-
-	public function updateAMQPMessage()
-
-	{
-
-		$this->amqpMessage->setBody(json_encode($this->config));
 
 	}
 

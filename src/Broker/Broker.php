@@ -237,16 +237,18 @@ class Broker
 			$exchange = $this->exchange;
 		}
 
-		$msg = new Message($routingKey, ["message" => $message]);
-		/* Create the message */
+		# Allow arrays to be given as parameter.
+        if (gettype($message) == "array")
+            $message = json_encode($message);
 
-		$amqpMessage = $msg->getAMQPMessage();
+        /* Create the message */
+        $msg = new Message($message);
 
 		/* Publish message */
 
 		$this->channel->basic_publish(
 
-				$amqpMessage, $exchange, $msg->routingKey()
+				$msg, $exchange, $routingKey
 
 		);
 
@@ -268,13 +270,17 @@ class Broker
 
         foreach ($messages as $message)
         {
-            /* Create the message */
-            $msg = new Message($routingKey, ["message" => $message]);
 
-            $amqpMessage = $msg->getAMQPMessage();
+            # Allow arrays to be given as parameter.
+            if (gettype($message) == "array")
+                $message = json_encode($message);
+
+            /* Create the message */
+            $msg = new Message($message);
+
 
             $this->channel->batch_basic_publish(
-                $amqpMessage, $exchange, $routingKey
+                $msg, $exchange, $routingKey
             );
         }
 
