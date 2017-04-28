@@ -41,9 +41,16 @@ $this->rabbitMQ->sendMessage(json_encode($anArray));
 ```
 As a Facade
 ``` php
+use Kontoulis\RabbitMQLaravel\Facades\RabbitMQ;
+
 // Overide the default queueName
 RabbitMQ::setQueue("MyNewQueueName");
-RabbitMQ->sendMessage(json_encode($anArray));
+
+// Send message to default queue
+RabbitMQ::sendMessage($anArray);
+
+// Send message to different queue
+RabbitMQ::sendMessage($anArray, 'other_queue');
 
 ```
 - Listen to queue (not recommended to listen on an HTTP request. Check the standalone [rabbit-manager](https://github.com/kontoulis/rabbit-manager)
