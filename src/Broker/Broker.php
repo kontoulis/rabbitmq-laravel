@@ -291,7 +291,7 @@ class Broker extends AMQPChannel
 
     protected function handleSucceedStop(Message $msg)
     {
-        $msg->sendAck();
+        $msg->sendAck($this);
 
         $remaining = $this->getStatus($msg);
 

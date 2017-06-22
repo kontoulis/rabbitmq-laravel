@@ -47,9 +47,11 @@ class Message extends AMQPMessage
 	 * Sends an acknowledgment
 	 */
 
-	public function sendAck()
+	public function sendAck($channel = null)
 	{
-
+        if(!isset($this->delivery_info['channel'])){
+            $this->delivery_info['channel'] = $channel;
+        }
 		$this->delivery_info['channel']->basic_ack(
 
 			$this->getDeliveryTag()
