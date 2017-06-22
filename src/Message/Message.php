@@ -125,7 +125,7 @@ class Message extends AMQPMessage
     {
         return new Message(
             (array)json_decode($msg->body),
-            $msg->get_properties()
+            $msg->delivery_info
         );
     }
 
