@@ -28,42 +28,19 @@ $ php artisan vendor:publish
 ```
 
 ## Usage
-### Publish Message to queue
 
-#### With Dependency injection
-``` php
-function __construct(RabbitMQ $rabbitMQ){
-$this->rabbitMQ = $rabbitMQ;
-// Overide the default queueName
-$this->rabbitMQ->setQueue("MyNewQueueName");
-$this->rabbitMQ->sendMessage(json_encode($anArray));
+You can use the RabbitMQ facade to do anything as seen in https://github.com/php-amqplib/php-amqplib/blob/master/PhpAmqpLib/Channel/AMQPChannel.php . Basically, the RabbitMQ facade is AMQPChannel.
+
+- Publish Message to exchange
 
 ```
-#### As a Facade
+As a Facade
 ``` php
-use Kontoulis\RabbitMQLaravel\Facades\RabbitMQ;
+use PhpAmqpLib\Message\AMQPMessage;
 
-// Overide the default queueName
-RabbitMQ::setQueue("MyNewQueueName");
-
-// Send message to default queue
-RabbitMQ::sendMessage($anArray);
-
-// Send message to different queue
-RabbitMQ::sendMessage($anArray, 'other_queue');
-
+$msg = new AMQPMessage('mypayload';         
+RabbitMQ::basic_publish($msg, '', 'my-queue'));
 ```
-### Listen to queue 
-Not recommended to listen on an HTTP request. Check the standalone [rabbit-manager](https://github.com/kontoulis/rabbit-manager).
-
-You need to extend the Kontoulis\RabbitMQLaravel\Handlers\Handler; or use the DefaultHandler just to echo the message
-
-``` php
-// If you don't provide a handler and/or a queueName, the defaults will be used
-RabbitMQ::listenToQueue("Path\\To\\My\\Handler", "queueName");
-
-```
-
 
 ## License
 
