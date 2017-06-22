@@ -112,5 +112,21 @@ class Message extends AMQPMessage
 
 	}
 
+
+    /**
+     * Creates a message given the AMQP message and the queue it was received
+     * from
+     * @param \PhpAmqpLib\Message\AMQPMessage $msg
+     * @return Message
+     */
+    public static function fromAMQPMessage(AMQPMessage $msg)
+    {
+        return new Message(
+            $msg->delivery_info['routing_key'],
+            (array)json_decode($msg->body),
+            $msg
+        );
+    }
+
 }
 
