@@ -24,7 +24,7 @@ class DefaultHandler extends Handler{
 	 */
 	public function tryProcessing(Message $msg)
 	{
-		return $this->handleSuccess($msg->getAMQPMessage()->body);
+		return $this->handleSuccess($msg->getBody());
 
 	}
 
