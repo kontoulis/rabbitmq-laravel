@@ -34,7 +34,7 @@ class DefaultHandler extends Handler{
 	 */
 	protected function handleSuccess($msg)
 	{
-		echo $msg . "\n";
+		var_dump($msg);
 
 		return Handler::RV_SUCCEED_STOP;
 	}
