@@ -125,7 +125,7 @@ class Message extends AMQPMessage
     {
         return new Message(
             (array)json_decode($msg->body),
-            ['routing_key' => $msg->delivery_info['routing_key']]
+            $msg->get_properties()
         );
     }
 
