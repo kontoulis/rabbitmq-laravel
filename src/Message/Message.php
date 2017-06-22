@@ -112,5 +112,14 @@ class Message extends AMQPMessage
 
 	}
 
+    public static function fromAMQPMessage(AMQPMessage $msg)
+    {
+        return new Message(
+            $msg->delivery_info['routing_key'],
+            (array)json_decode($msg->body),
+            $msg
+        );
+    }
+
 }
 
