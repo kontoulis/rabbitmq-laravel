@@ -138,7 +138,7 @@ class Broker extends AMQPChannel
 
             $retVal = $ob->tryProcessing($msg);
 
-            $msg->updateAMQPMessage();
+//            $msg->updateAMQPMessage();
 
             switch ($retVal) {
 
@@ -205,7 +205,7 @@ class Broker extends AMQPChannel
 
         /* If haven't return yet, send an ACK */
 
-        $msg->sendAck();
+        dd($msg);
 
     }
 
