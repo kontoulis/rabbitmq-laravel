@@ -4,7 +4,7 @@ namespace Kontoulis\RabbitMQLaravel\Facades;
 
 use Illuminate\Support\Facades\Facade;
 
-class RabbitMQ extends facade{
+class RabbitMQ extends Facade{
 
 	protected static function getFacadeAccessor()
 	{
