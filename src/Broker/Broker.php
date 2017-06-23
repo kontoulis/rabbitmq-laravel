@@ -14,9 +14,17 @@ use Kontoulis\RabbitMQLaravel\Exception\BrokerException;
 use PhpAmqpLib\Connection\AMQPStreamConnection;
 use PhpAmqpLib\Exception\AMQPRuntimeException;
 use PhpAmqpLib\Channel\AMQPChannel;
+use PhpAmqpLib\Message\AMQPMessage;
 
 class Broker extends AMQPChannel
 {
+    private $queueName;
+    private $host;
+    private $port;
+    private $user;
+    private $password;
+    private $vhost;
+
     /**
      * @param $config
      * @throws Kontoulis\RabbitMQLaravel\Exception\BrokerException
@@ -103,9 +111,9 @@ class Broker extends AMQPChannel
 
         $this->basic_consume(
 
-            $this->queueName, '', false, false, false, false, function ($amqpMsg) use ($handlersMap) {
+            $this->queueName, '', false, false, false, false, function (AMQPMessage $amqpMsg) use ($handlersMap) {
 
-
+//            dd($amqpMsg->get("delivery_tag"));
             $msg = Message::fromAMQPMessage($amqpMsg);
 
             $this->handleMessage($msg, $handlersMap);
@@ -129,7 +137,7 @@ class Broker extends AMQPChannel
      * @param array   $handlersMap
      * @return bool
      */
-    public function handleMessage(Message $msg, array $handlersMap)
+    public function handleMessage($msg, array $handlersMap)
     {
 
         /* Try to process the message */
@@ -226,9 +234,9 @@ class Broker extends AMQPChannel
 
         ];
 
-        if (!is_null($msg) && strlen($msg->queueName) > 0) {
+        if (!is_null($msg) && strlen($msg->get("routing_key")) > 0) {
 
-            $queueName = $msg->queueName;
+            $queueName = $msg->get("routing_key");
 
         } else {
 
@@ -249,7 +257,7 @@ class Broker extends AMQPChannel
 
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
 
-        curl_setopt($ch, CURLOPT_POST, count($fields));
+        curl_setopt($ch, CURLOPT_POST, count($request));
 
         curl_setopt($ch, CURLOPT_POSTFIELDS, $fields);
 
@@ -289,9 +297,13 @@ class Broker extends AMQPChannel
      * @return bool
      */
 
-    protected function handleSucceedStop(Message $msg)
+    protected function handleSucceedStop($msg)
     {
-        $msg->sendAck($this);
+        $this->basic_ack(
+
+            $msg->get("delivery_tag")
+
+        );
 
         $remaining = $this->getStatus($msg);
 
@@ -309,7 +321,7 @@ class Broker extends AMQPChannel
      * @param Message $msg
      * @return bool
      */
-    protected function handleSucceedContinue(Message $msg)
+    protected function handleSucceedContinue($msg)
     {
         return true;
     }
@@ -319,7 +331,7 @@ class Broker extends AMQPChannel
      * @param Message $msg
      * @throws Kontoulis\RabbitMQLaravel\Exception\BrokerException
      */
-    protected function handleFailedStop(Message $msg)
+    protected function handleFailedStop($msg)
     {
         $msg->sendNack();
 

@@ -30,89 +30,89 @@ class Message extends AMQPMessage
         parent::__construct($body, $properties);
     }
 
-	/**************************************************************************
-	 * AMQP message high level API
-	 *************************************************************************/
+    /**************************************************************************
+     * AMQP message high level API
+     *************************************************************************/
 
-	/**
-	 * @return string
-	 */
+    /**
+     * @return string
+     */
 
-	public function routingKey()
-	{
-		return $this->delivery_info['routing_key'];
-	}
+    public function routingKey()
+    {
+        return $this->delivery_info['routing_key'];
+    }
 
-	/**
-	 * Sends an acknowledgment
-	 */
+    /**
+     * Sends an acknowledgment
+     */
 
-	public function sendAck($channel = null)
-	{
+    public function sendAck($channel = null)
+    {
         if(!isset($this->delivery_info['channel'])){
             $this->delivery_info['channel'] = $channel;
         }
-		$this->delivery_info['channel']->basic_ack(
+        $this->delivery_info['channel']->basic_ack(
 
-			$this->getDeliveryTag()
+            $this->getDeliveryTag()
 
-		);
+        );
 
-	}
+    }
 
-	/**
-	 * @return string
-	 */
+    /**
+     * @return string
+     */
 
-	public function getDeliveryTag()
+    public function getDeliveryTag()
 
-	{
+    {
 
-		return $this->delivery_info['delivery_tag'];
+        return $this->delivery_info['delivery_tag'];
 
-	}
+    }
 
-	/**
-	 * Sends a negative acknowledgment
-	 * @param bool $requeue Will the message be requeued
-	 */
+    /**
+     * Sends a negative acknowledgment
+     * @param bool $requeue Will the message be requeued
+     */
 
-	public function sendNack($requeue = false)
+    public function sendNack($requeue = false)
 
-	{
+    {
 
-		$this->delivery_info['channel']->basic_nack(
+        $this->delivery_info['channel']->basic_nack(
 
-			$this->getDeliveryTag(),
+            $this->getDeliveryTag(),
 
-			false, // ignore all unacknowledged messages
+            false, // ignore all unacknowledged messages
 
-			$requeue // reschedule the message
+            $requeue // reschedule the message
 
-		);
+        );
 
-	}
+    }
 
 
-	/**
-	 * Re-publishes the message to the queue.
-	 */
+    /**
+     * Re-publishes the message to the queue.
+     */
 
-	public function republish()
+    public function republish()
 
-	{
+    {
 
-		$this->delivery_info['channel']->basic_publish(
+        $this->delivery_info['channel']->basic_publish(
 
-			$this,
+            $this,
 
             $this->delivery_info['exchange'],
 
-			$this->routingKey()
+            $this->routingKey()
 
-		);
+        );
 
-	}
+    }
 
 
     /**
@@ -123,10 +123,7 @@ class Message extends AMQPMessage
      */
     public static function fromAMQPMessage(AMQPMessage $msg)
     {
-        return new Message(
-            (array)json_decode($msg->body),
-            $msg->delivery_info
-        );
+        return $msg;
     }
 
 }
