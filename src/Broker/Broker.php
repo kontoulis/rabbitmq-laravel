@@ -384,7 +384,7 @@ class Broker extends AMQPChannel
             $queueName = $this->queueName;
         }
 
-        $msg = new Message($queueName, ["message" => $message]);
+        $msg = new Message($message);
         /* Create the message */
 
         $amqpMessage = $msg->getAMQPMessage();
@@ -394,7 +394,7 @@ class Broker extends AMQPChannel
 
         $this->queue_declare(
 
-            $msg->queueName, false, true, false, false
+            $queueName, false, true, false, false
 
         );
 
