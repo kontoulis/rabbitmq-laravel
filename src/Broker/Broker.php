@@ -213,7 +213,7 @@ class Broker extends AMQPChannel
 
         /* If haven't return yet, send an ACK */
 
-        dd($msg);
+        $this->basic_ack($msg->get("delivery_tag"));
 
     }
 
