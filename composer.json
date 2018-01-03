@@ -32,7 +32,7 @@
     },
     "extra": {
         "branch-alias": {
-            "dev-dev": "2.0.0-dev"
+            "dev-dev": "dev"
         }
     },
     "minimum-stability": "dev"
