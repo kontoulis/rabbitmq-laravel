@@ -22,9 +22,9 @@ class DefaultHandler extends Handler{
      * @return int One of the possible return values defined as Handler
      * constants.
      */
-    public function tryProcessing($msg)
+    public function process($msg)
     {
-        return $this->handleSuccess($msg->getBody());
+        return $this->handleSuccess($msg);
 
     }
 
