@@ -29,10 +29,5 @@
     },
     "scripts": {
         "test": "phpunit"
-    },
-    "extra": {
-        "branch-alias": {
-            "dev-dev": "dev"
-        }
     }
 }
