@@ -10,32 +10,32 @@ use Kontoulis\RabbitMQLaravel\Message\Message;
  */
 class DefaultHandler extends Handler{
 
-	/**
-	 * Tries to process the incoming message.
-	 * @param Message $msg
-	 * @return int One of the possible return values defined as Handler
-	 * constants.
-	 */
-	/**
-	 * Tries to process the incoming message.
-	 * @param Message $msg
-	 * @return int One of the possible return values defined as Handler
-	 * constants.
-	 */
-	public function tryProcessing(Message $msg)
-	{
-		return $this->handleSuccess($msg->getAMQPMessage()->body);
+    /**
+     * Tries to process the incoming message.
+     * @param Message $msg
+     * @return int One of the possible return values defined as Handler
+     * constants.
+     */
+    /**
+     * Tries to process the incoming message.
+     * @param Message $msg
+     * @return int One of the possible return values defined as Handler
+     * constants.
+     */
+    public function process($msg)
+    {
+        return $this->handleSuccess($msg);
 
-	}
+    }
 
-	/**
-	 * @param $msg
-	 * @return int
-	 */
-	protected function handleSuccess($msg)
-	{
-		echo $msg . "\n";
+    /**
+     * @param $msg
+     * @return int
+     */
+    protected function handleSuccess($msg)
+    {
+        var_dump($msg);
 
-		return Handler::RV_SUCCEED_STOP;
-	}
+        return Handler::RV_SUCCEED_STOP;
+    }
 }

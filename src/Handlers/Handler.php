@@ -2,6 +2,7 @@
 
 namespace Kontoulis\RabbitMQLaravel\Handlers;
 
+use Kontoulis\RabbitMQLaravel\Exception\HandlerException;
 use Kontoulis\RabbitMQLaravel\Message\Message;
 
 /**
@@ -34,6 +35,12 @@ abstract class Handler
 	 * put it again in the queue
 	 */
 	const RV_FAILED_REQUEUE = 12;
+
+    /**
+     * We failed to do our job with this message
+     * put it again in the queue and stop execution
+     */
+    const RV_FAILED_REQUEUE_STOP = 13;
 	/**
 	 * Keep listening to the queue after successfully parsing the message
 	 */
@@ -76,12 +83,78 @@ abstract class Handler
 	 * constants.
 	 */
 
-	abstract public function tryProcessing(Message $msg);
+	abstract public function process(Message $msg);
 
 	/**
 	 * @param $msg
-	 * @return mixed
+	 * @return int
 	 */
 	abstract protected function handleSuccess($msg);
+
+    /**
+     * @param Message $msg
+     * @return bool
+     */
+
+    public function handleSucceedStop(Message $msg)
+    {
+        $msg->sendAck();
+        return true;
+    }
+
+    /**
+     * @param Message $msg
+     * @return bool
+     */
+    public function handleSucceedContinue(Message $msg)
+    {
+        return true;
+    }
+
+    /**
+     * @param Message $msg
+     * @throws HandlerException
+     */
+    public function handleFailedStop(Message $msg)
+    {
+        $msg->sendNack();
+        throw new HandlerException(
+            "Handler failed for message"
+            . " {$msg->getDeliveryTag()}."
+            . " Execution stopped but message is not rescheduled."
+        );
+    }
+
+    /**
+     * @param Message $msg$
+     * @return bool
+     */
+    public function handleFailedRequeue(Message $msg)
+    {
+        $msg->sendNack(true);
+        return true;
+    }
+
+    public function handleFailedRequeueStop(Message $msg, $debug = false)
+    {
+        $msg->sendNack(true);
+        throw new HandlerException(
+            "Handler failed for message"
+            . " {$msg->getDeliveryTag()}."
+            . " Execution stopped , message is  rescheduled."
+            . ($debug ? $msg->getBody() : "")
+        );
+    }
+
+
+    /**
+     * @param Message $msg
+     * @return bool
+     */
+    public function handleFailedContinue(Message $msg)
+    {
+        $msg->sendNack();
+        return true;
+    }
 }
 
