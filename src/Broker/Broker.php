@@ -44,7 +44,7 @@ class Broker extends AMQPChannel
     /**
      * @var
      */
-    protected $defaultQueue;
+    protected $defaultRoutingKey;
 
     /**
      * If set, the consumer will exit after the timeout is passed (e.g. if the queue is empty after the timeout passes)
@@ -63,14 +63,14 @@ class Broker extends AMQPChannel
         $this->user = $config['amqp_user'];
         $this->password = $config['amqp_pass'];
         $this->vhost = $config['amqp_vhost'];
-        $this->defaultQueue = (!empty($config["amqp_default_queue"]) ? $config["amqp_default_queue"] : env("APP_NAME")."_queue");
+        $this->defaultRoutingKey = (!empty($config["amqp_default_queue"]) ? $config["amqp_default_queue"] : env("APP_NAME")."_queue");
 
         try {
             /* Open RabbitMQ connection */
             $connection = new AMQPStreamConnection($this->host, $this->port, $this->user, $this->password, $this->vhost);
             parent::__construct($connection);
 
-        } catch (AMQPRuntimeException $ex) {
+        } catch (\Exception $ex) {
             throw new BrokerException(
                 'Fatal error while initializing AMQP connection: '
                 . $ex->getMessage(),
@@ -84,6 +84,13 @@ class Broker extends AMQPChannel
      */
     public function setConsumeTimeout($timeout = 0){
         $this->consumeTimeout = $timeout;
+    }
+
+    /**
+     * @param $routingKey
+     */
+    public function setRoutingKey($routingKey){
+        $this->defaultRoutingKey = $routingKey;
     }
 
     /**
@@ -211,8 +218,11 @@ class Broker extends AMQPChannel
      * @param array   $handlersMap
      * @return bool
      */
-    public function handleMessage(Message $msg, array $handlersMap)
+    public function handleMessage(Message $msg, $handlersMap)
     {
+        if(is_string($handlersMap)){
+            $handlersMap = [$handlersMap];
+        }
         /* Try to process the message */
         foreach ($handlersMap as $handler) {
             $retVal = $handler->process($msg);
@@ -294,7 +304,7 @@ class Broker extends AMQPChannel
     {
         if (is_null($routingKey)) {
             // Set the routing key if missing
-            $routingKey = $this->defaultQueue;
+            $routingKey = $this->defaultRoutingKey;
         }
 
         // Create/declare queue
@@ -314,7 +324,7 @@ class Broker extends AMQPChannel
     {
         if (is_null($routingKey)) {
             // Set the routing key if missing
-            $routingKey = $this->defaultQueue;
+            $routingKey = $this->defaultRoutingKey;
         }
 
         $ch = curl_init();

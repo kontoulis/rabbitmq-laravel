@@ -8,7 +8,8 @@ use Kontoulis\RabbitMQLaravel\Message\Message;
  * Class DefaultHandler
  * @package Kontoulis\RabbitMQLaravel\Handlers
  */
-class DefaultHandler extends Handler{
+class DefaultHandler extends Handler
+{
 
     /**
      * Tries to process the incoming message.
@@ -22,7 +23,7 @@ class DefaultHandler extends Handler{
      * @return int One of the possible return values defined as Handler
      * constants.
      */
-    public function process($msg)
+    public function process(Message $msg)
     {
         return $this->handleSuccess($msg);
 
@@ -35,7 +36,9 @@ class DefaultHandler extends Handler{
     protected function handleSuccess($msg)
     {
         var_dump($msg);
-
+        /**
+         * For more Handler return values see the parent class
+         */
         return Handler::RV_SUCCEED_STOP;
     }
 }
