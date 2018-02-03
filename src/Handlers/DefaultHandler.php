@@ -17,12 +17,7 @@ class DefaultHandler extends Handler
      * @return int One of the possible return values defined as Handler
      * constants.
      */
-    /**
-     * Tries to process the incoming message.
-     * @param Message $msg
-     * @return int One of the possible return values defined as Handler
-     * constants.
-     */
+
     public function process(Message $msg)
     {
         return $this->handleSuccess($msg);

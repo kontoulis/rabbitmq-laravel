@@ -30,8 +30,8 @@ $ php artisan vendor:publish
 ## Usage
 - Routing Key / Queue Name
 
-The default routing key can be set in config file, or env("APP_NAME")."_queue") will be used
-Also most methods take argument `$routingKey` which can override the default
+The default routing key can be set in config file, or env("APP_NAME")."_queue") will be used.
+Also most methods take argument `$routingKey` which can override the default.
 ```php
 RabbitMQ::setRoutingKey("myRoutingKey/queueName");
 ```
@@ -54,11 +54,11 @@ Basically, the RabbitMQ facade uses the Broker class which is an extension of AM
 ``` php
 // Single message
  
-$msg1 = [
+$msg = [
     "key1" => "value1", 
     "key2" => "value2"
     ];         
-RabbitMQ::publishMesssage($msg1);
+RabbitMQ::publishMesssage($msg);
 
 // OR
 RabbitMQ::publishMessage($msg, "myRoutingKey");
@@ -104,12 +104,7 @@ class DefaultHandler extends Handler{
      * @return int One of the possible return values defined as Handler
      * constants.
      */
-    /**
-     * Tries to process the incoming message.
-     * @param Message $msg
-     * @return int One of the possible return values defined as Handler
-     * constants.
-     */
+
     public function process(Message $msg)
     {
         return $this->handleSuccess($msg);
